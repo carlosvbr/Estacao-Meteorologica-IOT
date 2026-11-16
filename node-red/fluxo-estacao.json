@@ -1,0 +1,715 @@
+[
+  {
+    "id": "tab_estacao",
+    "type": "tab",
+    "label": "Estacao Meteorologica",
+    "disabled": false,
+    "info": "Le os dados da estacao (Wokwi/ESP32) no HiveMQ Cloud e exibe na dashboard."
+  },
+  {
+    "id": "cmt_info",
+    "type": "comment",
+    "z": "tab_estacao",
+    "name": "Broker publico HiveMQ (broker.hivemq.com:1883) - topicos estacao/viniciusborba/#",
+    "info": "",
+    "x": 360,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "mqtt_dados",
+    "type": "mqtt in",
+    "z": "tab_estacao",
+    "name": "Sensores",
+    "topic": "estacao/viniciusborba/dados",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "broker_hivemq",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 120,
+    "y": 160,
+    "wires": [
+      [
+        "fn_separar",
+        "dbg_dados"
+      ]
+    ]
+  },
+  {
+    "id": "fn_separar",
+    "type": "function",
+    "z": "tab_estacao",
+    "name": "Separar dados",
+    "func": "const d = msg.payload;\nif (typeof d !== 'object' || d === null) return null;\n\nconst temp  = { payload: d.temperatura };\nconst umid  = { payload: d.umidade };\nconst gas   = { payload: d.gasPct };\n\n// grafico historico: uma mensagem por serie (topic = nome da linha)\nconst grafico = [\n  { topic: 'Temperatura (C)',     payload: d.temperatura },\n  { topic: 'Umidade (%)',         payload: d.umidade },\n  { topic: 'Indice de calor (C)', payload: d.indiceCalor }\n];\n\nconst conforto = { payload: `${d.indiceCalor} C - ${d.conforto}` };\nconst luz      = { payload: `${d.lux} lux - ${d.luz}` };\nconst ar       = { payload: `${d.qualidadeAr} (${d.gasPct}%)` };\nconst alerta   = { payload: d.alerta };\n\n// notificacao (toast) somente quando o alerta muda\nlet toast = null;\nconst anterior = context.get('alertaAnterior') || 'Nenhum';\nif (d.alerta !== anterior) {\n  context.set('alertaAnterior', d.alerta);\n  if (d.alerta && d.alerta !== 'Nenhum') {\n    toast = { topic: 'ALERTA - Estacao', payload: d.alerta };\n  }\n}\n\nconst hora = { payload: d.dataHora || '--' };\n\nreturn [temp, umid, gas, grafico, conforto, luz, ar, alerta, toast, hora];",
+    "outputs": 10,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 160,
+    "wires": [
+      [
+        "ui_g_temp"
+      ],
+      [
+        "ui_g_umid"
+      ],
+      [
+        "ui_g_gas"
+      ],
+      [
+        "ui_chart_hist"
+      ],
+      [
+        "ui_t_conforto"
+      ],
+      [
+        "ui_t_luz"
+      ],
+      [
+        "ui_t_ar"
+      ],
+      [
+        "ui_t_alerta"
+      ],
+      [
+        "ui_toast_alerta"
+      ],
+      [
+        "ui_t_hora"
+      ]
+    ]
+  },
+  {
+    "id": "dbg_dados",
+    "type": "debug",
+    "z": "tab_estacao",
+    "name": "debug dados",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 330,
+    "y": 100,
+    "wires": []
+  },
+  {
+    "id": "ui_g_temp",
+    "type": "ui_gauge",
+    "z": "tab_estacao",
+    "name": "",
+    "group": "grp_sensores",
+    "order": 1,
+    "width": 0,
+    "height": 0,
+    "gtype": "gage",
+    "title": "Temperatura",
+    "label": "C",
+    "format": "{{value}}",
+    "min": "-10",
+    "max": "50",
+    "colors": [
+      "#3fa9f5",
+      "#00b500",
+      "#ca3838"
+    ],
+    "seg1": "18",
+    "seg2": "35",
+    "diff": false,
+    "className": "",
+    "x": 620,
+    "y": 60,
+    "wires": []
+  },
+  {
+    "id": "ui_g_umid",
+    "type": "ui_gauge",
+    "z": "tab_estacao",
+    "name": "",
+    "group": "grp_sensores",
+    "order": 2,
+    "width": 0,
+    "height": 0,
+    "gtype": "gage",
+    "title": "Umidade",
+    "label": "%",
+    "format": "{{value}}",
+    "min": 0,
+    "max": "100",
+    "colors": [
+      "#e6a23c",
+      "#00b500",
+      "#3fa9f5"
+    ],
+    "seg1": "30",
+    "seg2": "70",
+    "diff": false,
+    "className": "",
+    "x": 610,
+    "y": 100,
+    "wires": []
+  },
+  {
+    "id": "ui_g_gas",
+    "type": "ui_gauge",
+    "z": "tab_estacao",
+    "name": "",
+    "group": "grp_ar",
+    "order": 1,
+    "width": 0,
+    "height": 0,
+    "gtype": "donut",
+    "title": "Gas MQ-2",
+    "label": "%",
+    "format": "{{value}}",
+    "min": 0,
+    "max": "100",
+    "colors": [
+      "#00b500",
+      "#e6e600",
+      "#ca3838"
+    ],
+    "seg1": "30",
+    "seg2": "60",
+    "diff": false,
+    "className": "",
+    "x": 610,
+    "y": 140,
+    "wires": []
+  },
+  {
+    "id": "ui_chart_hist",
+    "type": "ui_chart",
+    "z": "tab_estacao",
+    "name": "",
+    "group": "grp_historico",
+    "order": 1,
+    "width": "12",
+    "height": "6",
+    "label": "Historico (ultima hora)",
+    "chartType": "line",
+    "legend": "true",
+    "xformat": "HH:mm:ss",
+    "interpolate": "linear",
+    "nodata": "Aguardando dados...",
+    "dot": false,
+    "ymin": "",
+    "ymax": "",
+    "removeOlder": 1,
+    "removeOlderPoints": "",
+    "removeOlderUnit": "3600",
+    "cutout": 0,
+    "useOneColor": false,
+    "useUTC": false,
+    "colors": [
+      "#ff7f0e",
+      "#1f77b4",
+      "#d62728",
+      "#2ca02c",
+      "#98df8a",
+      "#9467bd",
+      "#ff9896",
+      "#c5b0d5",
+      "#8c564b"
+    ],
+    "outputs": 1,
+    "useDifferentColor": false,
+    "className": "",
+    "x": 640,
+    "y": 180,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "ui_t_conforto",
+    "type": "ui_text",
+    "z": "tab_estacao",
+    "group": "grp_sensores",
+    "order": 3,
+    "width": 0,
+    "height": 0,
+    "name": "",
+    "label": "Conforto termico",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "className": "",
+    "x": 640,
+    "y": 220,
+    "wires": []
+  },
+  {
+    "id": "ui_t_luz",
+    "type": "ui_text",
+    "z": "tab_estacao",
+    "group": "grp_sensores",
+    "order": 4,
+    "width": 0,
+    "height": 0,
+    "name": "",
+    "label": "Luminosidade",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "className": "",
+    "x": 630,
+    "y": 260,
+    "wires": []
+  },
+  {
+    "id": "ui_t_ar",
+    "type": "ui_text",
+    "z": "tab_estacao",
+    "group": "grp_ar",
+    "order": 2,
+    "width": 0,
+    "height": 0,
+    "name": "",
+    "label": "Qualidade do ar",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "className": "",
+    "x": 640,
+    "y": 300,
+    "wires": []
+  },
+  {
+    "id": "ui_t_alerta",
+    "type": "ui_text",
+    "z": "tab_estacao",
+    "group": "grp_ar",
+    "order": 3,
+    "width": 0,
+    "height": 0,
+    "name": "",
+    "label": "Alertas",
+    "format": "<b style=\"color:{{msg.payload === 'Nenhum' ? '#00b500' : '#ca3838'}}\">{{msg.payload}}</b>",
+    "layout": "row-spread",
+    "className": "",
+    "x": 610,
+    "y": 340,
+    "wires": []
+  },
+  {
+    "id": "ui_toast_alerta",
+    "type": "ui_toast",
+    "z": "tab_estacao",
+    "position": "top right",
+    "displayTime": "5",
+    "highlight": "red",
+    "sendall": true,
+    "outputs": 0,
+    "ok": "OK",
+    "cancel": "",
+    "raw": false,
+    "className": "",
+    "topic": "",
+    "name": "Notificacao de alerta",
+    "x": 660,
+    "y": 380,
+    "wires": []
+  },
+  {
+    "id": "mqtt_previsao",
+    "type": "mqtt in",
+    "z": "tab_estacao",
+    "name": "Previsao",
+    "topic": "estacao/viniciusborba/previsao",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "broker_hivemq",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 120,
+    "y": 480,
+    "wires": [
+      [
+        "fn_previsao",
+        "dbg_prev"
+      ]
+    ]
+  },
+  {
+    "id": "fn_previsao",
+    "type": "function",
+    "z": "tab_estacao",
+    "name": "Formatar previsao",
+    "func": "const d = msg.payload;\nif (typeof d !== 'object' || d === null) return null;\n\nconst icones = {\n  'Tempestade': '⛈️', 'Chuva forte': '🌧️', 'Chuva': '🌧️',\n  'Nublado, chuva prov.': '🌦️', 'Nublado': '☁️',\n  'Parcial. nublado': '⛅', 'Ensolarado': '☀️',\n  'Ensolarado e quente': '🔥☀️'\n};\nconst icone = icones[d.previsao] || '🌡️';\n\nlet seta = '→';\nif (d.tendencia > 0.3) seta = '↑';\nelse if (d.tendencia < -0.3) seta = '↓';\n\nreturn [\n  { payload: `${icone} ${d.previsao}` },\n  { payload: d.pressao },\n  { payload: `${seta} ${d.tendencia} hPa (fonte: ${d.fonte})` },\n  { payload: d.cidade }\n];",
+    "outputs": 4,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 350,
+    "y": 480,
+    "wires": [
+      [
+        "ui_t_prev"
+      ],
+      [
+        "ui_g_pressao"
+      ],
+      [
+        "ui_t_tend"
+      ],
+      [
+        "ui_t_cidade"
+      ]
+    ]
+  },
+  {
+    "id": "dbg_prev",
+    "type": "debug",
+    "z": "tab_estacao",
+    "name": "debug previsao",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 340,
+    "y": 540,
+    "wires": []
+  },
+  {
+    "id": "ui_t_prev",
+    "type": "ui_text",
+    "z": "tab_estacao",
+    "group": "grp_previsao",
+    "order": 1,
+    "width": 0,
+    "height": 0,
+    "name": "",
+    "label": "Previsao",
+    "format": "<span style=\"font-size:1.4em\">{{msg.payload}}</span>",
+    "layout": "row-spread",
+    "className": "",
+    "x": 610,
+    "y": 440,
+    "wires": []
+  },
+  {
+    "id": "ui_g_pressao",
+    "type": "ui_gauge",
+    "z": "tab_estacao",
+    "name": "",
+    "group": "grp_previsao",
+    "order": 2,
+    "width": 0,
+    "height": 0,
+    "gtype": "gage",
+    "title": "Pressao atmosferica",
+    "label": "hPa",
+    "format": "{{value}}",
+    "min": "980",
+    "max": "1040",
+    "colors": [
+      "#3fa9f5",
+      "#a0a0a0",
+      "#e6e600"
+    ],
+    "seg1": "1009",
+    "seg2": "1018",
+    "diff": false,
+    "className": "",
+    "x": 640,
+    "y": 480,
+    "wires": []
+  },
+  {
+    "id": "ui_t_tend",
+    "type": "ui_text",
+    "z": "tab_estacao",
+    "group": "grp_previsao",
+    "order": 3,
+    "width": 0,
+    "height": 0,
+    "name": "",
+    "label": "Tendencia",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "className": "",
+    "x": 610,
+    "y": 520,
+    "wires": []
+  },
+  {
+    "id": "ui_t_cidade",
+    "type": "ui_text",
+    "z": "tab_estacao",
+    "group": "grp_previsao",
+    "order": 4,
+    "width": 0,
+    "height": 0,
+    "name": "",
+    "label": "Cidade (API)",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "className": "",
+    "x": 620,
+    "y": 560,
+    "wires": []
+  },
+  {
+    "id": "broker_hivemq",
+    "type": "mqtt-broker",
+    "name": "HiveMQ (broker.hivemq.com)",
+    "broker": "broker.hivemq.com",
+    "port": "1883",
+    "tls": "",
+    "clientid": "",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true,
+    "autoUnsubscribe": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closeQos": "0",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willPayload": "",
+    "willMsg": {},
+    "userProps": "",
+    "sessionExpiry": ""
+  },
+  {
+    "id": "ui_tab_estacao",
+    "type": "ui_tab",
+    "name": "Estacao Meteorologica",
+    "icon": "dashboard",
+    "order": 1,
+    "disabled": false,
+    "hidden": false
+  },
+  {
+    "id": "grp_sensores",
+    "type": "ui_group",
+    "name": "Clima e Conforto",
+    "tab": "ui_tab_estacao",
+    "order": 1,
+    "disp": true,
+    "width": "6",
+    "collapse": false,
+    "className": ""
+  },
+  {
+    "id": "grp_ar",
+    "type": "ui_group",
+    "name": "Qualidade do Ar e Alertas",
+    "tab": "ui_tab_estacao",
+    "order": 2,
+    "disp": true,
+    "width": "6",
+    "collapse": false,
+    "className": ""
+  },
+  {
+    "id": "grp_previsao",
+    "type": "ui_group",
+    "name": "Previsao do Tempo",
+    "tab": "ui_tab_estacao",
+    "order": 3,
+    "disp": true,
+    "width": "6",
+    "collapse": false,
+    "className": ""
+  },
+  {
+    "id": "grp_historico",
+    "type": "ui_group",
+    "name": "Historico",
+    "tab": "ui_tab_estacao",
+    "order": 4,
+    "disp": true,
+    "width": "12",
+    "collapse": false,
+    "className": ""
+  },
+  {
+    "id": "ui_t_hora",
+    "type": "ui_text",
+    "z": "tab_estacao",
+    "group": "grp_sensores",
+    "order": 0,
+    "width": 0,
+    "height": 0,
+    "name": "",
+    "label": "Ultima leitura",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "className": "",
+    "x": 630,
+    "y": 600,
+    "wires": []
+  },
+  {
+    "id": "mqtt_relatorio",
+    "type": "mqtt in",
+    "z": "tab_estacao",
+    "name": "Relatorio diario",
+    "topic": "estacao/viniciusborba/relatorio",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "broker_hivemq",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 130,
+    "y": 680,
+    "wires": [
+      [
+        "fn_relatorio"
+      ]
+    ]
+  },
+  {
+    "id": "fn_relatorio",
+    "type": "function",
+    "z": "tab_estacao",
+    "name": "Formatar relatorio",
+    "func": "const r = msg.payload;\nif (typeof r !== 'object' || r === null) return null;\nreturn [\n  { payload: r.data },\n  { payload: `${r.mediaTemp} °C` },\n  { payload: `${r.mediaUmid} %` },\n  { payload: r.leituras },\n  { payload: `${r.enviadoEm} (${r.fonte})` }\n];",
+    "outputs": 5,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 360,
+    "y": 680,
+    "wires": [
+      [
+        "ui_r_data"
+      ],
+      [
+        "ui_r_temp"
+      ],
+      [
+        "ui_r_umid"
+      ],
+      [
+        "ui_r_qtd"
+      ],
+      [
+        "ui_r_envio"
+      ]
+    ]
+  },
+  {
+    "id": "grp_relatorio",
+    "type": "ui_group",
+    "name": "Relatorio Diario (enviado por email)",
+    "tab": "ui_tab_estacao",
+    "order": 5,
+    "disp": true,
+    "width": "6",
+    "collapse": false,
+    "className": ""
+  },
+  {
+    "id": "ui_r_data",
+    "type": "ui_text",
+    "z": "tab_estacao",
+    "group": "grp_relatorio",
+    "order": 1,
+    "width": 0,
+    "height": 0,
+    "name": "",
+    "label": "Data de referencia",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "className": "",
+    "x": 620,
+    "y": 640,
+    "wires": []
+  },
+  {
+    "id": "ui_r_temp",
+    "type": "ui_text",
+    "z": "tab_estacao",
+    "group": "grp_relatorio",
+    "order": 2,
+    "width": 0,
+    "height": 0,
+    "name": "",
+    "label": "Media temperatura",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "className": "",
+    "x": 620,
+    "y": 680,
+    "wires": []
+  },
+  {
+    "id": "ui_r_umid",
+    "type": "ui_text",
+    "z": "tab_estacao",
+    "group": "grp_relatorio",
+    "order": 3,
+    "width": 0,
+    "height": 0,
+    "name": "",
+    "label": "Media umidade",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "className": "",
+    "x": 620,
+    "y": 720,
+    "wires": []
+  },
+  {
+    "id": "ui_r_qtd",
+    "type": "ui_text",
+    "z": "tab_estacao",
+    "group": "grp_relatorio",
+    "order": 4,
+    "width": 0,
+    "height": 0,
+    "name": "",
+    "label": "Leituras no dia",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "className": "",
+    "x": 620,
+    "y": 760,
+    "wires": []
+  },
+  {
+    "id": "ui_r_envio",
+    "type": "ui_text",
+    "z": "tab_estacao",
+    "group": "grp_relatorio",
+    "order": 5,
+    "width": 0,
+    "height": 0,
+    "name": "",
+    "label": "Enviado em",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "className": "",
+    "x": 620,
+    "y": 800,
+    "wires": []
+  }
+]
